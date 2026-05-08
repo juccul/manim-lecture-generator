@@ -8,6 +8,6 @@ __pycache__/
 manim_lectures/
 media/
 renders/
-assets/audio/
+*/assets/audio/
 
 .DS_Store

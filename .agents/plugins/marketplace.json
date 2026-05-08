@@ -1,0 +1,20 @@
+{
+  "name": "juccul-manim-plugins",
+  "interface": {
+    "displayName": "Juccul Manim Plugins"
+  },
+  "plugins": [
+    {
+      "name": "manim-lecture-generator",
+      "source": {
+        "source": "local",
+        "path": "./plugins/manim-lecture-generator"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Education"
+    }
+  ]
+}
