@@ -1,0 +1,41 @@
+{
+  "name": "manim-lecture-generator",
+  "version": "0.2.0",
+  "description": "Turn one or more PDF lecture sources into finished narrated Manim lecture videos with local Kokoro TTS and layout validation.",
+  "author": {
+    "name": "Local",
+    "email": "",
+    "url": ""
+  },
+  "homepage": "",
+  "repository": "",
+  "license": "MIT",
+  "keywords": [
+    "manim",
+    "lecture-generation",
+    "pdf",
+    "tts",
+    "latex",
+    "math"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Manim Lecture Generator",
+    "shortDescription": "Generate narrated Manim videos from PDFs with local TTS.",
+    "longDescription": "Provides an end-to-end PDF-to-video workflow: source extraction, lecture planning, Manim scene generation, local Kokoro TTS narration, audio/video muxing, and render validation focused on keeping elements sized correctly and inside the frame.",
+    "developerName": "Local",
+    "category": "Education",
+    "capabilities": [
+      "Read",
+      "Write",
+      "Generate",
+      "Interactive"
+    ],
+    "defaultPrompt": [
+      "Generate a finished narrated Manim video from the PDFs in this directory, with scene scripts, local Kokoro TTS, LaTeX math, and layout validation.",
+      "Create a multi-video Manim course outline from these PDFs and implement the first lecture.",
+      "Extract the attached PDF into a rigorous Manim lecture plan with synchronized voiceover timing."
+    ],
+    "brandColor": "#2563EB"
+  }
+}

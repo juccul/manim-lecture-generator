@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+manim_lectures/
+media/
+renders/
+assets/audio/
+
+.DS_Store
