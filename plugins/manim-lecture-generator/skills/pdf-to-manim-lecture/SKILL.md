@@ -87,7 +87,8 @@ This creates a finished baseline video without an external API. Codex should imp
    - Use visual pacing: reveal, transform, highlight, arrange, then recap.
    - Prefer clear diagrams and algebraic transformations over text-heavy slides.
    - Do not follow a fixed visual template when Codex is authoring the final lecture. Design visuals from the actual mathematical content: number lines, clocks, Cayley tables, commutative diagrams, graphs, geometric transformations, set partitions, proof flow diagrams, and concrete examples as appropriate.
-   - Aim for a 3Blue1Brown-like teaching style: dynamic object transformations, color-coded mathematical roles, smooth camera movement, progressive reveals, and minimal text.
+   - Aim for a 3Blue1Brown-like teaching style: black background, dynamic object transformations, color-coded mathematical roles, glowing highlights, smooth camera movement, progressive reveals, and minimal text.
+   - Avoid rigid title/body/footer layouts and repeated slide frames. Prefer a fluid stage where objects enter, transform, orbit, split, merge, and fade as the narration advances.
    - On-screen text should be labels, definitions, formulas, or short signposts only. Never put raw PDF paragraphs or slide bullets on screen.
    - Use Manim Voiceover if installed; otherwise structure code so audio can be attached later with `self.add_sound(...)` and timing waits.
    - Use safe-zone helpers for every text, math, diagram, and group. No visible object may overlap incoherently, exceed the render frame, or be sized too small/large for the viewport.

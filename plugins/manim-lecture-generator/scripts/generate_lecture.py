@@ -454,11 +454,14 @@ FRAME_W = 13.6
 FRAME_H = 7.65
 SAFE_W = 12.2
 SAFE_H = 6.6
-TITLE_COLOR = "#F2C14E"
-ACCENT = "#4FB3BF"
-SECONDARY = "#F78154"
-INK = "#F4F1DE"
-MUTED = "#9AA0A6"
+TITLE_COLOR = "#F7C948"
+ACCENT = "#58C4DD"
+SECONDARY = "#FF6B6B"
+GREEN = "#7BD88F"
+PURPLE = "#A78BFA"
+INK = "#F8F8F2"
+MUTED = "#6B7280"
+BLACK = "#000000"
 
 
 def fit_to_safe_zone(mobject: Mobject, max_width: float = SAFE_W, max_height: float = SAFE_H) -> Mobject:
@@ -493,75 +496,107 @@ def math_label(tex: str, font_size: int = 36, color=INK) -> MathTex:
     return fit_to_safe_zone(item, max_width=5.9, max_height=1.15)
 
 
+def glow(mobject: Mobject, color=ACCENT, layers: int = 4) -> VGroup:
+    result = VGroup()
+    for index in range(layers, 0, -1):
+        copy = mobject.copy()
+        copy.set_stroke(color, width=2 + 3 * index, opacity=0.06 * index)
+        copy.set_fill(opacity=0)
+        result.add(copy)
+    return result
+
+
+def ambient_field() -> VGroup:
+    dots = VGroup()
+    for i in range(42):
+        x = -6.4 + (i * 1.73) % 12.8
+        y = -3.45 + (i * 2.31) % 6.9
+        radius = 0.012 + 0.01 * (i % 3)
+        dot = Dot([x, y, 0], radius=radius, color=ACCENT if i % 2 else MUTED).set_opacity(0.25)
+        dots.add(dot)
+    return dots
+
+
 def concept_map_visual(beat: dict) -> VGroup:
     labels = ["Objects", "Operations", "Laws"]
-    nodes = VGroup(*[
-        RoundedRectangle(width=2.25, height=0.8, corner_radius=0.12, color=ACCENT).set_fill("#172A3A", 0.75)
-        for _ in labels
-    ]).arrange(RIGHT, buff=0.55)
-    text = VGroup(*[Text(label, font_size=24, color=INK).move_to(node) for label, node in zip(labels, nodes)])
-    arrows = VGroup(*[Arrow(nodes[i].get_right(), nodes[i + 1].get_left(), buff=0.12, color=SECONDARY) for i in range(2)])
-    formula = math_label(beat.get("math", r"\\text{{structure}}"), 34).next_to(nodes, DOWN, buff=0.55)
-    return VGroup(nodes, text, arrows, formula)
+    angles = [PI * 0.9, PI * 0.1, -PI / 2]
+    nodes = VGroup()
+    text = VGroup()
+    for label, angle, color in zip(labels, angles, [ACCENT, SECONDARY, GREEN]):
+        point = 2.05 * (RIGHT * np.cos(angle) + UP * np.sin(angle))
+        circle = Circle(radius=0.62, color=color, stroke_width=4).move_to(point)
+        nodes.add(VGroup(glow(circle, color, 3), circle))
+        text.add(Text(label, font_size=22, color=INK).move_to(point))
+    connectors = VGroup(*[
+        Line(nodes[i].get_center(), nodes[(i + 1) % 3].get_center(), color=MUTED, stroke_width=2).set_opacity(0.75)
+        for i in range(3)
+    ])
+    formula = math_label(beat.get("math", r"\\text{{structure}}"), 34).move_to(ORIGIN)
+    return VGroup(connectors, nodes, text, formula)
 
 
 def modular_clock_visual(beat: dict) -> VGroup:
-    circle = Circle(radius=1.45, color=ACCENT, stroke_width=4)
+    circle = Circle(radius=1.75, color=ACCENT, stroke_width=5)
     ticks = VGroup()
     labels = VGroup()
     for k in range(5):
         angle = PI / 2 - TAU * k / 5
-        point = circle.get_center() + 1.45 * (RIGHT * np.cos(angle) + UP * np.sin(angle))
-        ticks.add(Dot(point, radius=0.055, color=SECONDARY))
-        labels.add(Text(str(k), font_size=22, color=INK).move_to(circle.get_center() + 1.78 * (RIGHT * np.cos(angle) + UP * np.sin(angle))))
-    arrow = CurvedArrow(labels[2].get_center(), labels[0].get_center(), radius=-2.2, color=SECONDARY)
-    calc = MathTex(r"12+18\\equiv 2+3\\equiv 0\\pmod 5", font_size=34, color=INK)
+        point = circle.get_center() + 1.75 * (RIGHT * np.cos(angle) + UP * np.sin(angle))
+        ticks.add(Dot(point, radius=0.075, color=SECONDARY))
+        labels.add(Text(str(k), font_size=25, color=INK).move_to(circle.get_center() + 2.16 * (RIGHT * np.cos(angle) + UP * np.sin(angle))))
+    arrow = CurvedArrow(labels[2].get_center(), labels[0].get_center(), radius=-2.45, color=SECONDARY, stroke_width=5)
+    calc = MathTex(r"12+18\\equiv 2+3\\equiv 0\\pmod 5", font_size=36, color=INK)
     calc.next_to(circle, DOWN, buff=0.42)
-    return VGroup(circle, ticks, labels, arrow, calc)
+    return VGroup(glow(circle, ACCENT, 4), circle, ticks, labels, arrow, calc)
 
 
 def symmetry_square_visual(beat: dict) -> VGroup:
-    square = Square(side_length=2.2, color=ACCENT, stroke_width=5)
+    square = Square(side_length=2.55, color=ACCENT, stroke_width=5)
     vertices = VGroup(*[Dot(square.get_vertices()[i], color=SECONDARY) for i in range(4)])
     labels = VGroup(*[Text(str(i + 1), font_size=20, color=INK).next_to(vertices[i], square.get_vertices()[i] - square.get_center(), buff=0.12) for i in range(4)])
-    rot = CurvedArrow(UP * 1.45 + RIGHT * 0.25, RIGHT * 1.45 + DOWN * 0.25, radius=-1.5, color=SECONDARY)
-    mirror = DashedLine(UP * 1.55, DOWN * 1.55, color=MUTED)
+    rot = CurvedArrow(UP * 1.7 + RIGHT * 0.25, RIGHT * 1.7 + DOWN * 0.25, radius=-1.85, color=SECONDARY, stroke_width=5)
+    mirror = DashedLine(UP * 1.85, DOWN * 1.85, color=PURPLE, stroke_width=3)
     formula = math_label(beat.get("math", r"D_4"), 31).next_to(square, DOWN, buff=0.45)
-    return VGroup(square, vertices, labels, rot, mirror, formula)
+    return VGroup(glow(square, ACCENT, 4), square, vertices, labels, rot, mirror, formula)
 
 
 def equivalence_partition_visual(beat: dict) -> VGroup:
-    colors = [ACCENT, SECONDARY, "#90BE6D"]
+    colors = [ACCENT, SECONDARY, GREEN]
     classes = VGroup()
     for i, color in enumerate(colors):
-        blob = Ellipse(width=1.55, height=2.35, color=color, stroke_width=3).set_fill(color, 0.16)
+        blob = Ellipse(width=1.75, height=2.55, color=color, stroke_width=4).set_fill(color, 0.11)
         dots = VGroup(*[Dot(radius=0.055, color=INK).shift(RIGHT * ((j % 2) - 0.5) * 0.48 + UP * (j - 1) * 0.35) for j in range(3)])
         dots.move_to(blob)
         label = MathTex(rf"[{{i}}]", font_size=28, color=color).next_to(blob, DOWN, buff=0.14)
-        classes.add(VGroup(blob, dots, label))
+        classes.add(VGroup(glow(blob, color, 3), blob, dots, label))
     classes.arrange(RIGHT, buff=0.35)
     formula = math_label(beat.get("math", r"[a]"), 32).next_to(classes, DOWN, buff=0.42)
     return VGroup(classes, formula)
 
 
 def closure_map_visual(beat: dict) -> VGroup:
-    domain = RoundedRectangle(width=3.0, height=2.35, corner_radius=0.2, color=ACCENT).set_fill("#172A3A", 0.55)
+    domain = Circle(radius=1.55, color=ACCENT, stroke_width=5).set_fill(ACCENT, 0.08)
     a = Dot(domain.get_center() + LEFT * 0.65 + UP * 0.35, color=INK)
     b = Dot(domain.get_center() + RIGHT * 0.15 + DOWN * 0.25, color=INK)
     c = Dot(domain.get_center() + RIGHT * 0.75 + UP * 0.05, color=SECONDARY)
     arrow1 = Arrow(a.get_center(), c.get_center(), buff=0.12, color=SECONDARY)
     arrow2 = Arrow(b.get_center(), c.get_center(), buff=0.12, color=SECONDARY)
     label = MathTex(r"a\\star b\\in S", font_size=34, color=INK).next_to(domain, DOWN, buff=0.42)
-    return VGroup(domain, a, b, c, arrow1, arrow2, label)
+    orbit = Circle(radius=1.95, color=MUTED, stroke_width=1).set_opacity(0.45)
+    return VGroup(glow(domain, ACCENT, 4), orbit, domain, a, b, c, arrow1, arrow2, label)
 
 
 def operation_machine_visual(beat: dict) -> VGroup:
-    left = VGroup(MathTex("a", color=INK), MathTex("b", color=INK)).arrange(DOWN, buff=0.45)
-    box = RoundedRectangle(width=2.15, height=1.25, corner_radius=0.18, color=ACCENT).set_fill("#172A3A", 0.8)
+    left = VGroup(MathTex("a", color=ACCENT), MathTex("b", color=SECONDARY)).arrange(DOWN, buff=0.55)
+    box = Circle(radius=0.78, color=PURPLE, stroke_width=5).set_fill(PURPLE, 0.13)
     op = MathTex(r"\\star", font_size=46, color=SECONDARY).move_to(box)
-    out = MathTex(r"a\\star b", font_size=34, color=INK)
-    group = VGroup(left, VGroup(box, op), out).arrange(RIGHT, buff=0.6)
-    arrows = VGroup(Arrow(left.get_right(), box.get_left(), buff=0.1, color=MUTED), Arrow(box.get_right(), out.get_left(), buff=0.1, color=MUTED))
+    out = MathTex(r"a\\star b", font_size=40, color=GREEN)
+    group = VGroup(left, VGroup(glow(box, PURPLE, 4), box, op), out).arrange(RIGHT, buff=0.72)
+    arrows = VGroup(
+        Arrow(left[0].get_right(), box.get_left() + UP * 0.18, buff=0.1, color=ACCENT, stroke_width=4),
+        Arrow(left[1].get_right(), box.get_left() + DOWN * 0.18, buff=0.1, color=SECONDARY, stroke_width=4),
+        Arrow(box.get_right(), out.get_left(), buff=0.1, color=GREEN, stroke_width=4),
+    )
     formula = math_label(beat.get("math", r"(a,b)\\mapsto a\\star b"), 32).next_to(group, DOWN, buff=0.45)
     return VGroup(group, arrows, formula)
 
@@ -572,16 +607,19 @@ def group_axioms_visual(beat: dict) -> VGroup:
         MathTex(r"a\\star a^{-1}=e", font_size=31, color=INK),
         MathTex(r"(a\\star b)\\star c=a\\star(b\\star c)", font_size=31, color=INK),
     ).arrange(DOWN, aligned_edge=LEFT, buff=0.28)
-    brace = Brace(formulas, LEFT, color=SECONDARY)
-    label = Text("axiom checks", font_size=22, color=SECONDARY).next_to(brace, LEFT, buff=0.18)
-    return VGroup(formulas, brace, label)
+    rings = VGroup(*[
+        Circle(radius=1.0 + 0.35 * i, color=[ACCENT, SECONDARY, PURPLE][i], stroke_width=2).set_opacity(0.55)
+        for i in range(3)
+    ]).move_to(formulas)
+    return VGroup(rings, formulas)
 
 
 def coordinate_graph_visual(beat: dict) -> VGroup:
     axes = Axes(x_range=[-3, 3, 1], y_range=[-1, 5, 1], x_length=4.6, y_length=3.1, tips=False, axis_config={{"color": MUTED}})
     curve = axes.plot(lambda x: 0.45 * (x - 0.4) ** 2 + 0.25, x_range=[-2.6, 2.7], color=SECONDARY)
+    tangent = Line(axes.c2p(-0.7, 0.8), axes.c2p(1.7, 1.9), color=ACCENT, stroke_width=4)
     label = MathTex(r"f(x)", font_size=30, color=INK).next_to(axes, UP, buff=0.1)
-    return VGroup(axes, curve, label)
+    return VGroup(axes, curve, tangent, label)
 
 
 def visual_for(beat: dict) -> VGroup:
@@ -597,7 +635,7 @@ def visual_for(beat: dict) -> VGroup:
         "concept_map": concept_map_visual,
     }}
     item = builders.get(visual, concept_map_visual)(beat)
-    return fit_to_safe_zone(item, max_width=5.9, max_height=4.15)
+    return fit_to_safe_zone(item, max_width=8.8, max_height=5.3)
 
 
 def beat_panel(beat: dict) -> VGroup:
@@ -607,37 +645,75 @@ def beat_panel(beat: dict) -> VGroup:
     return fit_to_safe_zone(panel, max_width=5.8, max_height=4.4)
 
 
-class Lecture01(Scene):
+def floating_label(beat: dict) -> VGroup:
+    signpost = Text(beat.get("onscreen") or beat.get("title", ""), font_size=25, color=INK)
+    formula = MathTex(beat.get("math", r"\\text{{idea}}"), font_size=36, color=TITLE_COLOR)
+    group = VGroup(formula, signpost).arrange(DOWN, buff=0.18)
+    return fit_to_safe_zone(group, max_width=7.5, max_height=1.5)
+
+
+def create_animation_for(mobject: Mobject):
+    pieces = [part for part in mobject if isinstance(part, VMobject)]
+    if len(pieces) > 1:
+        return LaggedStart(*[Create(part) for part in pieces[:10]], lag_ratio=0.04)
+    return GrowFromCenter(mobject)
+
+
+class Lecture01(MovingCameraScene):
     def construct(self):
-        self.camera.background_color = "#101418"
+        self.camera.background_color = BLACK
+        field = ambient_field()
+        self.add(field)
         for beat in BEATS:
             audio = beat.get("audio")
             if audio:
                 self.add_sound(audio)
 
             title = Text(beat.get("title", "Lecture"), font_size=34, weight=BOLD, color=TITLE_COLOR)
-            title.to_edge(UP, buff=0.32)
-            fit_to_safe_zone(title, max_width=11.8, max_height=0.7)
-
+            title.to_corner(UL, buff=0.42)
+            fit_to_safe_zone(title, max_width=6.5, max_height=0.75)
             visual = visual_for(beat)
-            panel = beat_panel(beat)
-            body = VGroup(visual, panel).arrange(RIGHT, buff=0.72)
-            body.move_to(ORIGIN + DOWN * 0.08)
-            fit_to_safe_zone(body, max_width=12.0, max_height=4.9)
+            visual.move_to(ORIGIN)
+            label = floating_label(beat).to_edge(DOWN, buff=0.42)
 
-            footer = Text(beat["beat_id"], font_size=18, color=GRAY_B).to_edge(DOWN, buff=0.3)
-            group = VGroup(title, body, footer)
-            fit_to_safe_zone(group, max_width=12.4, max_height=7.0)
+            duration = max(2.2, float(beat.get("duration", 4.0)))
+            intro = min(1.1, duration * 0.2)
+            motion = min(2.3, duration * 0.45)
+            outro = min(0.65, duration * 0.16)
+            hold = max(0.2, duration - intro - motion - outro)
 
-            duration = max(0.2, float(beat.get("duration", 3.0)))
-            fade_in = min(0.35, duration * 0.15)
-            fade_out = min(0.25, duration * 0.1)
-            hold = max(0.01, duration - fade_in - fade_out)
+            self.play(
+                field.animate.set_opacity(0.55).shift(LEFT * 0.08),
+                FadeIn(title, shift=RIGHT * 0.25),
+                create_animation_for(visual),
+                run_time=intro,
+                rate_func=smooth,
+            )
+            self.play(
+                Write(label[0]),
+                FadeIn(label[1], shift=UP * 0.12),
+                visual.animate.scale(1.05).shift(UP * 0.12),
+                run_time=min(1.0, motion * 0.45),
+                rate_func=smooth,
+            )
 
-            self.play(FadeIn(title, shift=DOWN * 0.1), FadeIn(visual, shift=RIGHT * 0.12), FadeIn(panel, shift=LEFT * 0.12), run_time=fade_in)
-            self.wait(hold)
-            self.play(FadeOut(title), FadeOut(body), run_time=fade_out)
-            self.remove(title, body, footer)
+            visual_kind = beat.get("visual", "")
+            if visual_kind in ("modular_clock", "symmetry_square", "group_axioms"):
+                self.play(Rotate(visual, angle=PI / 10, about_point=ORIGIN), run_time=motion, rate_func=there_and_back)
+            elif visual_kind in ("equivalence_partition", "closure_map"):
+                self.play(visual.animate.shift(RIGHT * 0.35).scale(1.06), field.animate.shift(RIGHT * 0.18), run_time=motion, rate_func=there_and_back)
+            else:
+                self.play(visual.animate.shift(LEFT * 0.28).scale(1.07), field.animate.shift(LEFT * 0.16), run_time=motion, rate_func=there_and_back)
+
+            self.play(Circumscribe(label[0], color=SECONDARY, fade_out=True), run_time=min(0.9, hold))
+            self.wait(max(0.01, hold - min(0.9, hold)))
+            self.play(
+                FadeOut(title, shift=LEFT * 0.18),
+                FadeOut(label, shift=DOWN * 0.15),
+                FadeOut(visual, scale=0.92),
+                run_time=outro,
+            )
+            self.remove(title, visual, label)
 ''',
         encoding="utf-8",
     )
