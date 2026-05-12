@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import subprocess
 import sys
 import wave
 from pathlib import Path
@@ -33,17 +32,29 @@ def kokoro_lang_code(voice: str) -> str:
     return "a"
 
 
+def audio_chunk_length(chunk: object) -> int:
+    if hasattr(chunk, "numel"):
+        return int(chunk.numel())  # type: ignore[attr-defined]
+    try:
+        return len(chunk)  # type: ignore[arg-type]
+    except TypeError:
+        return 0
+
+
 def generate_with_kokoro(text: str, path: Path, voice: str) -> float:
     from kokoro import KPipeline
+    import numpy as np
     import soundfile as sf
 
-    pipeline = KPipeline(lang_code=kokoro_lang_code(voice))
-    chunks = list(pipeline(text, voice=voice))
+    pipeline = KPipeline(lang_code=kokoro_lang_code(voice), repo_id="hexgrad/Kokoro-82M")
+    chunks = [chunk[2] for chunk in pipeline(text, voice=voice) if len(chunk) >= 3]
+    chunks = [chunk for chunk in chunks if audio_chunk_length(chunk) > 0]
     if not chunks:
         raise RuntimeError("Kokoro returned no audio chunks")
-    audio = chunks[0][2]
-    sf.write(str(path), audio, 24000)
-    return len(audio) / 24000.0
+    audio = chunks[0] if len(chunks) == 1 else np.concatenate(chunks)
+    sample_rate = 24000
+    sf.write(str(path), audio, sample_rate)
+    return len(audio) / float(sample_rate)
 
 
 def main() -> None:
@@ -64,28 +75,56 @@ def main() -> None:
     output_dir = Path(args.output_dir).expanduser()
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    status = {
+        "voice": args.voice,
+        "engine": "kokoro",
+        "ok": True,
+        "fallback": False,
+        "messages": [],
+        "beats": [],
+    }
     kokoro_available = True
     try:
         import kokoro  # noqa: F401
         import soundfile  # noqa: F401
+        import numpy  # noqa: F401
     except Exception as exc:
         kokoro_available = False
-        print(f"Kokoro unavailable ({type(exc).__name__}: {exc}); writing silence placeholders.", file=sys.stderr)
-        print("Install hint: pip install kokoro soundfile; apt-get install espeak-ng ffmpeg", file=sys.stderr)
+        status["ok"] = False
+        status["fallback"] = True
+        message = f"Kokoro unavailable ({type(exc).__name__}: {exc}); writing silence placeholders."
+        status["messages"].append(message)
+        print(message, file=sys.stderr)
+        print("Install hint: pip install kokoro soundfile numpy; apt-get install espeak-ng ffmpeg", file=sys.stderr)
 
     for beat in beats:
         audio_path = output_dir / f"{beat['beat_id']}.wav"
         if kokoro_available:
             try:
                 duration = generate_with_kokoro(beat["text"], audio_path, args.voice)
+                engine = "kokoro"
             except Exception as exc:
-                print(f"Kokoro failed for {beat['beat_id']} ({type(exc).__name__}: {exc}); writing silence.", file=sys.stderr)
+                status["ok"] = False
+                status["fallback"] = True
+                message = f"Kokoro failed for {beat['beat_id']} ({type(exc).__name__}: {exc}); writing silence."
+                status["messages"].append(message)
+                print(message, file=sys.stderr)
                 write_silence(audio_path, float(beat.get("duration", 2.0)))
+                engine = "silence"
         else:
             write_silence(audio_path, float(beat.get("duration", 2.0)))
+            engine = "silence"
         duration = wav_duration(audio_path)
         beat["audio"] = str(audio_path)
         beat["duration"] = round(duration, 3)
+        status["beats"].append(
+            {
+                "beat_id": beat["beat_id"],
+                "audio": str(audio_path),
+                "duration": round(duration, 3),
+                "engine": engine,
+            }
+        )
 
     cursor = 0.0
     for beat in beats:
@@ -94,6 +133,7 @@ def main() -> None:
         beat["end"] = round(cursor, 2)
 
     timing_path.write_text(json.dumps(beats, indent=2) + "\n", encoding="utf-8")
+    (timing_path.parent / "tts_status.json").write_text(json.dumps(status, indent=2) + "\n", encoding="utf-8")
     print(f"Updated {timing_path} with audio paths.")
 
 

@@ -23,6 +23,29 @@ PLUGIN_DIR = Path(__file__).resolve().parents[1]
 REQUIRED_MODULES = ("kokoro", "soundfile", "manim")
 WORD_RE = re.compile(r"[A-Za-z0-9]+(?:'[A-Za-z0-9]+)?")
 SENTENCE_RE = re.compile(r"(?<=[.!?])\s+")
+MATH_KEYWORDS = (
+    "operation",
+    "structure",
+    "modular",
+    "modulo",
+    "congruence",
+    "equivalence",
+    "class",
+    "partition",
+    "closure",
+    "symmetry",
+    "rotation",
+    "reflection",
+    "group",
+    "identity",
+    "inverse",
+    "associativity",
+    "function",
+    "theorem",
+    "proof",
+    "axiom",
+)
+ADMIN_KEYWORDS = ("canvas", "tutorial", "lectures:", "module manual", "reader:", "q3", "welcome")
 
 
 def run(cmd: list[str], cwd: Path | None = None, check: bool = True) -> subprocess.CompletedProcess:
@@ -134,6 +157,70 @@ def choose_title(pdfs: list[Path]) -> str:
     return f"{common.title()} Lecture"
 
 
+def infer_visual_kind(title: str, text: str) -> str:
+    haystack = f"{title} {text}".lower()
+    if any(word in haystack for word in ("modular", "modulo", "congruence", "residue")):
+        return "modular_clock"
+    if any(word in haystack for word in ("symmetry", "rotation", "reflection", "square", "dihedral")):
+        return "symmetry_square"
+    if any(word in haystack for word in ("equivalence", "class", "partition", "representative")):
+        return "equivalence_partition"
+    if any(word in haystack for word in ("closure", "well-defined", "operation on a set")):
+        return "closure_map"
+    if any(word in haystack for word in ("operation", "binary", "unary", "arity", "composition")):
+        return "operation_machine"
+    if any(word in haystack for word in ("group", "identity", "inverse", "associativity", "axiom")):
+        return "group_axioms"
+    if any(word in haystack for word in ("function", "graph", "curve", "polynomial")):
+        return "coordinate_graph"
+    return "concept_map"
+
+
+def math_statement_for_visual(visual: str) -> str:
+    statements = {
+        "modular_clock": r"a \equiv b \pmod n \iff n \mid (a-b)",
+        "symmetry_square": r"D_4=\{e,r,r^2,r^3,s,sr,sr^2,sr^3\}",
+        "equivalence_partition": r"[a]=\{x\in S: x\sim a\}",
+        "closure_map": r"\star:S\times S\to S",
+        "operation_machine": r"(a,b)\mapsto a\star b",
+        "group_axioms": r"(G,\star):\ e,\ a^{-1},\ (a\star b)\star c=a\star(b\star c)",
+        "coordinate_graph": r"f:X\to Y",
+        "concept_map": r"\text{objects}+\text{operations}+\text{laws}",
+    }
+    return statements.get(visual, statements["concept_map"])
+
+
+def sentence_score(sentence: str) -> int:
+    lower = sentence.lower()
+    score = sum(3 for word in MATH_KEYWORDS if word in lower)
+    score += min(len(WORD_RE.findall(sentence)) // 12, 4)
+    score -= sum(4 for word in ADMIN_KEYWORDS if word in lower)
+    if any(symbol in sentence for symbol in ("≡", "∼", "→", "\\", "∈", "∀", "=")):
+        score += 2
+    return score
+
+
+def title_for_sentence(sentence: str, visual: str, index: int) -> str:
+    lower = sentence.lower()
+    if visual == "modular_clock":
+        if "well-defined" in lower:
+            return "Well-Defined Modular Arithmetic"
+        return "Modular Congruence"
+    if visual == "symmetry_square":
+        return "Symmetries As Operations"
+    if visual == "equivalence_partition":
+        return "Equivalence Classes"
+    if visual == "closure_map":
+        return "Closure"
+    if visual == "operation_machine":
+        return "Operations And Arity"
+    if visual == "group_axioms":
+        return "Group Axiom Check"
+    if visual == "coordinate_graph":
+        return "Functions As Structure"
+    return f"Mathematical Idea {index}"
+
+
 def summarize_to_beats(text: str, title: str, max_beats: int) -> list[dict]:
     cleaned = re.sub(r"#+\s+.*", " ", text)
     cleaned = re.sub(r">.*", " ", cleaned)
@@ -145,13 +232,19 @@ def summarize_to_beats(text: str, title: str, max_beats: int) -> list[dict]:
             "The goal is to make the source material teachable through clear visual steps.",
         ]
 
-    selected = sentences[: max(3, max_beats)]
+    scored = [(sentence_score(sentence), position, sentence) for position, sentence in enumerate(sentences)]
+    relevant = [(score, position, sentence) for score, position, sentence in scored if score > 0]
+    pool = relevant or scored
+    selected_ranked = sorted(pool, key=lambda item: (-item[0], item[1]))[: max(3, max_beats)]
+    selected = [sentence for _, _, sentence in sorted(selected_ranked, key=lambda item: item[1])]
     beats: list[dict] = [
         {
             "beat_id": "L01_S01_B01",
             "scene": "Lecture01",
             "kind": "title",
             "title": title,
+            "visual": "concept_map",
+            "math": r"\text{objects}+\text{operations}+\text{laws}",
             "text": f"Welcome. In this lecture, we will study {title}. We will build the ideas carefully and keep the notation visible as we go.",
         }
     ]
@@ -160,13 +253,17 @@ def summarize_to_beats(text: str, title: str, max_beats: int) -> list[dict]:
         short = " ".join(words[:34])
         if len(words) > 34:
             short += "..."
+        visual = infer_visual_kind("", sentence)
+        beat_title = title_for_sentence(sentence, visual, index - 1)
         beats.append(
             {
                 "beat_id": f"L01_S01_B{index:02d}",
                 "scene": "Lecture01",
                 "kind": "concept",
-                "title": f"Step {index - 1}",
+                "title": beat_title,
                 "screen_text": short,
+                "visual": visual,
+                "math": math_statement_for_visual(visual),
                 "text": sentence,
             }
         )
@@ -176,6 +273,8 @@ def summarize_to_beats(text: str, title: str, max_beats: int) -> list[dict]:
             "scene": "Lecture01",
             "kind": "recap",
             "title": "Recap",
+            "visual": "group_axioms",
+            "math": r"\text{definition}\to\text{example}\to\text{axiom check}",
             "text": "To recap, we identified the main definitions, connected them to examples, and prepared the ground for the next result.",
         }
     )
@@ -281,6 +380,7 @@ def write_scene(path: Path, beats: list[dict]) -> None:
     path.write_text(
         f'''from __future__ import annotations
 
+import numpy as np
 from manim import *
 
 
@@ -290,6 +390,11 @@ FRAME_W = 13.6
 FRAME_H = 7.65
 SAFE_W = 12.2
 SAFE_H = 6.6
+TITLE_COLOR = "#F2C14E"
+ACCENT = "#4FB3BF"
+SECONDARY = "#F78154"
+INK = "#F4F1DE"
+MUTED = "#9AA0A6"
 
 
 def fit_to_safe_zone(mobject: Mobject, max_width: float = SAFE_W, max_height: float = SAFE_H) -> Mobject:
@@ -300,13 +405,13 @@ def fit_to_safe_zone(mobject: Mobject, max_width: float = SAFE_W, max_height: fl
     return mobject
 
 
-def safe_text(text: str, font_size: int = 34, width: float = 11.4) -> Paragraph:
+def safe_text(text: str, font_size: int = 28, width: float = 5.7, max_lines: int = 5) -> Paragraph:
     words = text.split()
     lines = []
     line = []
     count = 0
     for word in words:
-        if count + len(word) + 1 > 58:
+        if count + len(word) + 1 > 42:
             lines.append(" ".join(line))
             line = [word]
             count = len(word)
@@ -315,38 +420,147 @@ def safe_text(text: str, font_size: int = 34, width: float = 11.4) -> Paragraph:
             count += len(word) + 1
     if line:
         lines.append(" ".join(line))
-    paragraph = Paragraph(*lines[:5], alignment="center", font_size=font_size, line_spacing=0.55)
-    return fit_to_safe_zone(paragraph, max_width=width, max_height=4.4)
+    paragraph = Paragraph(*lines[:max_lines], alignment="left", font_size=font_size, line_spacing=0.58)
+    return fit_to_safe_zone(paragraph, max_width=width, max_height=3.2)
+
+
+def math_label(tex: str, font_size: int = 36, color=INK) -> MathTex:
+    item = MathTex(tex, font_size=font_size, color=color)
+    return fit_to_safe_zone(item, max_width=5.9, max_height=1.15)
+
+
+def concept_map_visual(beat: dict) -> VGroup:
+    labels = ["Objects", "Operations", "Laws"]
+    nodes = VGroup(*[
+        RoundedRectangle(width=2.25, height=0.8, corner_radius=0.12, color=ACCENT).set_fill("#172A3A", 0.75)
+        for _ in labels
+    ]).arrange(RIGHT, buff=0.55)
+    text = VGroup(*[Text(label, font_size=24, color=INK).move_to(node) for label, node in zip(labels, nodes)])
+    arrows = VGroup(*[Arrow(nodes[i].get_right(), nodes[i + 1].get_left(), buff=0.12, color=SECONDARY) for i in range(2)])
+    formula = math_label(beat.get("math", r"\\text{{structure}}"), 34).next_to(nodes, DOWN, buff=0.55)
+    return VGroup(nodes, text, arrows, formula)
+
+
+def modular_clock_visual(beat: dict) -> VGroup:
+    circle = Circle(radius=1.45, color=ACCENT, stroke_width=4)
+    ticks = VGroup()
+    labels = VGroup()
+    for k in range(5):
+        angle = PI / 2 - TAU * k / 5
+        point = circle.get_center() + 1.45 * (RIGHT * np.cos(angle) + UP * np.sin(angle))
+        ticks.add(Dot(point, radius=0.055, color=SECONDARY))
+        labels.add(Text(str(k), font_size=22, color=INK).move_to(circle.get_center() + 1.78 * (RIGHT * np.cos(angle) + UP * np.sin(angle))))
+    arrow = CurvedArrow(labels[2].get_center(), labels[0].get_center(), radius=-2.2, color=SECONDARY)
+    calc = MathTex(r"12+18\\equiv 2+3\\equiv 0\\pmod 5", font_size=34, color=INK)
+    calc.next_to(circle, DOWN, buff=0.42)
+    return VGroup(circle, ticks, labels, arrow, calc)
+
+
+def symmetry_square_visual(beat: dict) -> VGroup:
+    square = Square(side_length=2.2, color=ACCENT, stroke_width=5)
+    vertices = VGroup(*[Dot(square.get_vertices()[i], color=SECONDARY) for i in range(4)])
+    labels = VGroup(*[Text(str(i + 1), font_size=20, color=INK).next_to(vertices[i], square.get_vertices()[i] - square.get_center(), buff=0.12) for i in range(4)])
+    rot = CurvedArrow(UP * 1.45 + RIGHT * 0.25, RIGHT * 1.45 + DOWN * 0.25, radius=-1.5, color=SECONDARY)
+    mirror = DashedLine(UP * 1.55, DOWN * 1.55, color=MUTED)
+    formula = math_label(beat.get("math", r"D_4"), 31).next_to(square, DOWN, buff=0.45)
+    return VGroup(square, vertices, labels, rot, mirror, formula)
+
+
+def equivalence_partition_visual(beat: dict) -> VGroup:
+    colors = [ACCENT, SECONDARY, "#90BE6D"]
+    classes = VGroup()
+    for i, color in enumerate(colors):
+        blob = Ellipse(width=1.55, height=2.35, color=color, stroke_width=3).set_fill(color, 0.16)
+        dots = VGroup(*[Dot(radius=0.055, color=INK).shift(RIGHT * ((j % 2) - 0.5) * 0.48 + UP * (j - 1) * 0.35) for j in range(3)])
+        dots.move_to(blob)
+        label = MathTex(rf"[{{i}}]", font_size=28, color=color).next_to(blob, DOWN, buff=0.14)
+        classes.add(VGroup(blob, dots, label))
+    classes.arrange(RIGHT, buff=0.35)
+    formula = math_label(beat.get("math", r"[a]"), 32).next_to(classes, DOWN, buff=0.42)
+    return VGroup(classes, formula)
+
+
+def closure_map_visual(beat: dict) -> VGroup:
+    domain = RoundedRectangle(width=3.0, height=2.35, corner_radius=0.2, color=ACCENT).set_fill("#172A3A", 0.55)
+    a = Dot(domain.get_center() + LEFT * 0.65 + UP * 0.35, color=INK)
+    b = Dot(domain.get_center() + RIGHT * 0.15 + DOWN * 0.25, color=INK)
+    c = Dot(domain.get_center() + RIGHT * 0.75 + UP * 0.05, color=SECONDARY)
+    arrow1 = Arrow(a.get_center(), c.get_center(), buff=0.12, color=SECONDARY)
+    arrow2 = Arrow(b.get_center(), c.get_center(), buff=0.12, color=SECONDARY)
+    label = MathTex(r"a\\star b\\in S", font_size=34, color=INK).next_to(domain, DOWN, buff=0.42)
+    return VGroup(domain, a, b, c, arrow1, arrow2, label)
+
+
+def operation_machine_visual(beat: dict) -> VGroup:
+    left = VGroup(MathTex("a", color=INK), MathTex("b", color=INK)).arrange(DOWN, buff=0.45)
+    box = RoundedRectangle(width=2.15, height=1.25, corner_radius=0.18, color=ACCENT).set_fill("#172A3A", 0.8)
+    op = MathTex(r"\\star", font_size=46, color=SECONDARY).move_to(box)
+    out = MathTex(r"a\\star b", font_size=34, color=INK)
+    group = VGroup(left, VGroup(box, op), out).arrange(RIGHT, buff=0.6)
+    arrows = VGroup(Arrow(left.get_right(), box.get_left(), buff=0.1, color=MUTED), Arrow(box.get_right(), out.get_left(), buff=0.1, color=MUTED))
+    formula = math_label(beat.get("math", r"(a,b)\\mapsto a\\star b"), 32).next_to(group, DOWN, buff=0.45)
+    return VGroup(group, arrows, formula)
+
+
+def group_axioms_visual(beat: dict) -> VGroup:
+    formulas = VGroup(
+        MathTex(r"e\\star a=a", font_size=31, color=INK),
+        MathTex(r"a\\star a^{-1}=e", font_size=31, color=INK),
+        MathTex(r"(a\\star b)\\star c=a\\star(b\\star c)", font_size=31, color=INK),
+    ).arrange(DOWN, aligned_edge=LEFT, buff=0.28)
+    brace = Brace(formulas, LEFT, color=SECONDARY)
+    label = Text("axiom checks", font_size=22, color=SECONDARY).next_to(brace, LEFT, buff=0.18)
+    return VGroup(formulas, brace, label)
+
+
+def coordinate_graph_visual(beat: dict) -> VGroup:
+    axes = Axes(x_range=[-3, 3, 1], y_range=[-1, 5, 1], x_length=4.6, y_length=3.1, tips=False, axis_config={{"color": MUTED}})
+    curve = axes.plot(lambda x: 0.45 * (x - 0.4) ** 2 + 0.25, x_range=[-2.6, 2.7], color=SECONDARY)
+    label = MathTex(r"f(x)", font_size=30, color=INK).next_to(axes, UP, buff=0.1)
+    return VGroup(axes, curve, label)
+
+
+def visual_for(beat: dict) -> VGroup:
+    visual = beat.get("visual", "concept_map")
+    builders = {{
+        "modular_clock": modular_clock_visual,
+        "symmetry_square": symmetry_square_visual,
+        "equivalence_partition": equivalence_partition_visual,
+        "closure_map": closure_map_visual,
+        "operation_machine": operation_machine_visual,
+        "group_axioms": group_axioms_visual,
+        "coordinate_graph": coordinate_graph_visual,
+        "concept_map": concept_map_visual,
+    }}
+    item = builders.get(visual, concept_map_visual)(beat)
+    return fit_to_safe_zone(item, max_width=5.9, max_height=4.15)
+
+
+def beat_panel(beat: dict) -> VGroup:
+    prose = safe_text(beat.get("screen_text") or beat.get("text", ""), font_size=25, width=5.4)
+    formula = math_label(beat.get("math", r"\\text{{idea}}"), 32)
+    panel = VGroup(formula, prose).arrange(DOWN, aligned_edge=LEFT, buff=0.35)
+    return fit_to_safe_zone(panel, max_width=5.8, max_height=4.4)
 
 
 class Lecture01(Scene):
     def construct(self):
-        self.camera.background_color = "#101820"
+        self.camera.background_color = "#101418"
         for beat in BEATS:
             audio = beat.get("audio")
             if audio:
                 self.add_sound(audio)
 
-            title = Text(beat.get("title", "Lecture"), font_size=36, weight=BOLD, color=BLUE_B)
-            title.to_edge(UP, buff=0.38)
+            title = Text(beat.get("title", "Lecture"), font_size=34, weight=BOLD, color=TITLE_COLOR)
+            title.to_edge(UP, buff=0.32)
             fit_to_safe_zone(title, max_width=11.8, max_height=0.7)
 
-            if beat.get("kind") == "title":
-                body = safe_text(beat["text"], font_size=32, width=11.0)
-            elif beat.get("kind") == "recap":
-                body = VGroup(
-                    safe_text(beat["text"], font_size=30, width=10.8),
-                    MathTex(r"\\text{{definitions}} \\rightarrow \\text{{examples}} \\rightarrow \\text{{structure}}", font_size=36),
-                ).arrange(DOWN, buff=0.45)
-                fit_to_safe_zone(body, max_width=11.3, max_height=4.8)
-            else:
-                body = VGroup(
-                    safe_text(beat.get("screen_text") or beat["text"], font_size=30, width=10.8),
-                    MathTex(r"\\text{{idea}} \\quad \\Longrightarrow \\quad \\text{{example}}", font_size=38),
-                ).arrange(DOWN, buff=0.45)
-                fit_to_safe_zone(body, max_width=11.3, max_height=4.8)
+            visual = visual_for(beat)
+            panel = beat_panel(beat)
+            body = VGroup(visual, panel).arrange(RIGHT, buff=0.72)
+            body.move_to(ORIGIN + DOWN * 0.08)
+            fit_to_safe_zone(body, max_width=12.0, max_height=4.9)
 
-            body.move_to(ORIGIN)
             footer = Text(beat["beat_id"], font_size=18, color=GRAY_B).to_edge(DOWN, buff=0.3)
             group = VGroup(title, body, footer)
             fit_to_safe_zone(group, max_width=12.4, max_height=7.0)
@@ -356,7 +570,7 @@ class Lecture01(Scene):
             fade_out = min(0.25, duration * 0.1)
             hold = max(0.01, duration - fade_in - fade_out)
 
-            self.play(FadeIn(title, shift=DOWN * 0.1), FadeIn(body, shift=UP * 0.1), run_time=fade_in)
+            self.play(FadeIn(title, shift=DOWN * 0.1), FadeIn(visual, shift=RIGHT * 0.12), FadeIn(panel, shift=LEFT * 0.12), run_time=fade_in)
             self.wait(hold)
             self.play(FadeOut(title), FadeOut(body), run_time=fade_out)
             self.remove(title, body, footer)
