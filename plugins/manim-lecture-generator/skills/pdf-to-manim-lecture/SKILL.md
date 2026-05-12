@@ -49,7 +49,7 @@ bash plugins/manim-lecture-generator/scripts/setup_venv.sh
 fmtutil-user --byfmt latex
 ```
 
-This creates a finished baseline video without an external API. Codex should improve the generated plan, narration, and Manim scenes when the user asks for an in-depth lecture, then rerun TTS/render/mux/validation.
+This creates an authoring scaffold without an external API. Codex must then replace the scaffold with a fully custom lesson plan, narration, and Manim scene code before running final TTS/render/mux/validation. Use `--render-scaffold` only when you explicitly need to smoke-test the placeholder scaffold.
 
 ## Workflow
 
@@ -87,6 +87,8 @@ This creates a finished baseline video without an external API. Codex should imp
    - Use visual pacing: reveal, transform, highlight, arrange, then recap.
    - Prefer clear diagrams and algebraic transformations over text-heavy slides.
    - Do not follow a fixed visual template when Codex is authoring the final lecture. Design visuals from the actual mathematical content: number lines, clocks, Cayley tables, commutative diagrams, graphs, geometric transformations, set partitions, proof flow diagrams, and concrete examples as appropriate.
+   - Start from a blank canvas for each lecture. Do not choose from canned visual constructors, topic presets, or keyword-to-animation mappings.
+   - The PDF should determine the mathematics, not the visual form. Decide the visual language during authoring after understanding the source.
    - Aim for a 3Blue1Brown-like teaching style: black background, dynamic object transformations, color-coded mathematical roles, glowing highlights, smooth camera movement, progressive reveals, and minimal text.
    - Avoid rigid title/body/footer layouts and repeated slide frames. Prefer a fluid stage where objects enter, transform, orbit, split, merge, and fade as the narration advances.
    - On-screen text should be labels, definitions, formulas, or short signposts only. Never put raw PDF paragraphs or slide bullets on screen.
@@ -177,6 +179,7 @@ If real TTS generation is unavailable, create estimated timing from word count a
 
 - The lecture should teach, not merely summarize.
 - PDF material should be transformed into a coherent lesson. Copying slide text into narration or visuals is a failure.
+- Selecting a prebuilt visual template because a keyword appeared in the PDF is a failure. Build the visual metaphor from the mathematical argument.
 - Every theorem or definition used in the animation should be introduced before use.
 - Important equations should be derived step by step.
 - The final deliverable should include concrete render commands and known limitations.

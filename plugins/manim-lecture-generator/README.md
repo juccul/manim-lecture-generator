@@ -23,13 +23,13 @@ bash plugins/manim-lecture-generator/scripts/setup_venv.sh
 fmtutil-user --byfmt latex
 ```
 
-The generator creates a project, extracts source text, writes a baseline Manim scene, generates local narration with Kokoro when available, renders with Manim, muxes audio with `ffmpeg`, and validates rendered frames. The baseline scene detects mathematical topics from the source, then writes natural-language narration and short formula-focused visuals instead of reading or displaying raw PDF text. Scenes use a black-stage visual style with glowing mathematical objects, sparse labels, ambient motion, and progressive reveals rather than fixed slide layouts.
+The generator creates a project, extracts source text, and writes a blank-canvas authoring scaffold. It does not choose preset visuals from PDF keywords. Codex should use the extracted source only to understand the mathematics, then author custom narration and Manim scenes from scratch before running Kokoro TTS, rendering, muxing with `ffmpeg`, and validating rendered frames.
 
 The pipeline measures generated WAV durations, rewrites `narration/timing.json`,
 regenerates the Manim scene from those real durations, and then muxes the final
 MP4 from the same timing manifest to prevent cumulative narration drift.
-It also writes `narration/tts_status.json`, which records whether each beat used
-Kokoro or fell back to generated silence.
+After custom narration is written, the TTS step writes `narration/tts_status.json`,
+which records whether each beat used Kokoro or fell back to generated silence.
 
 Use `--workspace <path>` to choose where `.venv` is created. Use
 `--no-bootstrap` to require the current Python environment.
