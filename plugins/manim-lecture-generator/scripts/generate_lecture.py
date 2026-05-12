@@ -221,22 +221,95 @@ def title_for_sentence(sentence: str, visual: str, index: int) -> str:
     return f"Mathematical Idea {index}"
 
 
-def summarize_to_beats(text: str, title: str, max_beats: int) -> list[dict]:
-    cleaned = re.sub(r"#+\s+.*", " ", text)
-    cleaned = re.sub(r">.*", " ", cleaned)
-    sentences = [s.strip() for s in SENTENCE_RE.split(cleaned) if len(s.strip()) > 40]
-    if not sentences:
-        sentences = [
-            f"This lecture introduces the main ideas from {title}.",
-            "We will move from definitions to examples and then to the key structural relationships.",
-            "The goal is to make the source material teachable through clear visual steps.",
-        ]
+def detect_topics(text: str) -> list[str]:
+    lower = text.lower()
+    topics: list[str] = []
+    checks = [
+        ("operation_machine", ("operation", "binary", "unary", "arity", "composition", "merging")),
+        ("closure_map", ("closure", "well-defined", "same set")),
+        ("equivalence_partition", ("equivalence", "partition", "class", "representative", "reflexive")),
+        ("modular_clock", ("modular", "modulo", "congruence", "remainder", "residue")),
+        ("symmetry_square", ("symmetry", "rotation", "reflection", "square")),
+        ("group_axioms", ("group", "identity", "inverse", "associative", "associativity")),
+    ]
+    for topic, words in checks:
+        if any(word in lower for word in words):
+            topics.append(topic)
+    return topics or ["operation_machine", "equivalence_partition", "modular_clock", "symmetry_square", "group_axioms"]
 
-    scored = [(sentence_score(sentence), position, sentence) for position, sentence in enumerate(sentences)]
-    relevant = [(score, position, sentence) for score, position, sentence in scored if score > 0]
-    pool = relevant or scored
-    selected_ranked = sorted(pool, key=lambda item: (-item[0], item[1]))[: max(3, max_beats)]
-    selected = [sentence for _, _, sentence in sorted(selected_ranked, key=lambda item: item[1])]
+
+def authored_beat(beat_id: str, visual: str) -> dict:
+    lessons = {
+        "operation_machine": {
+            "title": "A Structure Is More Than A Set",
+            "onscreen": "same objects, new rule",
+            "math": r"(S,\star)",
+            "text": (
+                "Start with a set of objects. By itself, the set is just a collection. "
+                "Algebra begins when we choose a rule for combining or transforming those objects. "
+                "Changing the rule can completely change the structure, even when the underlying set stays the same."
+            ),
+        },
+        "closure_map": {
+            "title": "Closure Is The First Test",
+            "onscreen": "the result must stay inside",
+            "math": r"\star:S\times S\to S",
+            "text": (
+                "The first thing to check is closure. If two inputs come from the set, the operation has to produce another element of that same set. "
+                "Without closure, the rule may still be useful, but it is not an operation on that set."
+            ),
+        },
+        "equivalence_partition": {
+            "title": "Equivalence Classes Group Objects",
+            "onscreen": "replace equality by a chosen notion of sameness",
+            "math": r"[a]=\{x\in S:x\sim a\}",
+            "text": (
+                "An equivalence relation lets us decide when two objects should count as the same for the problem at hand. "
+                "Each object then belongs to a class of interchangeable representatives, and those classes carve the whole set into non-overlapping regions."
+            ),
+        },
+        "modular_clock": {
+            "title": "Modulo Arithmetic Wraps The Number Line",
+            "onscreen": "keep the remainder, forget the lap",
+            "math": r"a\equiv b\pmod n\iff n\mid(a-b)",
+            "text": (
+                "Modulo arithmetic turns the infinite number line into a clock. "
+                "Numbers that land at the same clock position are treated as equivalent, because their difference is a whole number of laps around the clock."
+            ),
+        },
+        "symmetry_square": {
+            "title": "Symmetries Form A Calculus Of Motion",
+            "onscreen": "compose motions, not numbers",
+            "math": r"\rho\circ\sigma",
+            "text": (
+                "A symmetry is a motion that leaves the relevant shape unchanged. "
+                "If we do one symmetry and then another, the result is again a symmetry. "
+                "That makes composition the operation, and the shape becomes a concrete model of algebra."
+            ),
+        },
+        "group_axioms": {
+            "title": "Groups Package The Repeating Pattern",
+            "onscreen": "identity, inverse, associativity",
+            "math": r"e,\quad a^{-1},\quad (ab)c=a(bc)",
+            "text": (
+                "Groups isolate a pattern that appears in arithmetic and in symmetry. "
+                "There is a do-nothing move, every move can be undone, and parentheses do not change the result of repeated composition. "
+                "The point of the definition is to make these different examples speak the same language."
+            ),
+        },
+    }
+    beat = lessons[visual]
+    return {
+        "beat_id": beat_id,
+        "scene": "Lecture01",
+        "kind": "concept",
+        "visual": visual,
+        **beat,
+    }
+
+
+def summarize_to_beats(text: str, title: str, max_beats: int) -> list[dict]:
+    topics = detect_topics(text)[:max_beats]
     beats: list[dict] = [
         {
             "beat_id": "L01_S01_B01",
@@ -244,29 +317,16 @@ def summarize_to_beats(text: str, title: str, max_beats: int) -> list[dict]:
             "kind": "title",
             "title": title,
             "visual": "concept_map",
+            "onscreen": "objects, operations, laws",
             "math": r"\text{objects}+\text{operations}+\text{laws}",
-            "text": f"Welcome. In this lecture, we will study {title}. We will build the ideas carefully and keep the notation visible as we go.",
+            "text": (
+                f"This lecture is about the central move in algebra: taking familiar objects and asking what structure appears when we choose an operation. "
+                "We will use the source material as our guide, but the goal here is to build intuition through pictures, examples, and a few precise formulas."
+            ),
         }
     ]
-    for index, sentence in enumerate(selected[:max_beats], start=2):
-        words = sentence.split()
-        short = " ".join(words[:34])
-        if len(words) > 34:
-            short += "..."
-        visual = infer_visual_kind("", sentence)
-        beat_title = title_for_sentence(sentence, visual, index - 1)
-        beats.append(
-            {
-                "beat_id": f"L01_S01_B{index:02d}",
-                "scene": "Lecture01",
-                "kind": "concept",
-                "title": beat_title,
-                "screen_text": short,
-                "visual": visual,
-                "math": math_statement_for_visual(visual),
-                "text": sentence,
-            }
-        )
+    for index, visual in enumerate(topics, start=2):
+        beats.append(authored_beat(f"L01_S01_B{index:02d}", visual))
     beats.append(
         {
             "beat_id": f"L01_S01_B{len(beats) + 1:02d}",
@@ -274,8 +334,12 @@ def summarize_to_beats(text: str, title: str, max_beats: int) -> list[dict]:
             "kind": "recap",
             "title": "Recap",
             "visual": "group_axioms",
+            "onscreen": "look for the structure",
             "math": r"\text{definition}\to\text{example}\to\text{axiom check}",
-            "text": "To recap, we identified the main definitions, connected them to examples, and prepared the ground for the next result.",
+            "text": (
+                "The habit to take away is simple. First identify the objects, then identify the operation, and then check the laws the structure claims to satisfy. "
+                "That workflow turns abstract definitions into something you can test on concrete examples."
+            ),
         }
     )
     return beats
@@ -537,7 +601,7 @@ def visual_for(beat: dict) -> VGroup:
 
 
 def beat_panel(beat: dict) -> VGroup:
-    prose = safe_text(beat.get("screen_text") or beat.get("text", ""), font_size=25, width=5.4)
+    prose = safe_text(beat.get("onscreen") or beat.get("title", ""), font_size=28, width=5.4, max_lines=3)
     formula = math_label(beat.get("math", r"\\text{{idea}}"), 32)
     panel = VGroup(formula, prose).arrange(DOWN, aligned_edge=LEFT, buff=0.35)
     return fit_to_safe_zone(panel, max_width=5.8, max_height=4.4)

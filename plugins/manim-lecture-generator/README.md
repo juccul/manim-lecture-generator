@@ -23,7 +23,7 @@ bash plugins/manim-lecture-generator/scripts/setup_venv.sh
 fmtutil-user --byfmt latex
 ```
 
-The generator creates a project, extracts source text, writes a baseline Manim scene, generates local narration with Kokoro when available, renders with Manim, muxes audio with `ffmpeg`, and validates rendered frames. The baseline scene uses math-oriented visual templates such as operation maps, modular clocks, equivalence-class partitions, symmetry diagrams, graph axes, and LaTeX axiom panels instead of plain sentence slides.
+The generator creates a project, extracts source text, writes a baseline Manim scene, generates local narration with Kokoro when available, renders with Manim, muxes audio with `ffmpeg`, and validates rendered frames. The baseline scene detects mathematical topics from the source, then writes natural-language narration and short formula-focused visuals instead of reading or displaying raw PDF text.
 
 The pipeline measures generated WAV durations, rewrites `narration/timing.json`,
 regenerates the Manim scene from those real durations, and then muxes the final

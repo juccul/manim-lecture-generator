@@ -64,6 +64,8 @@ This creates a finished baseline video without an external API. Codex should imp
    - Identify prerequisites and the mathematical through-line.
    - Convert dense source text into teachable steps: motivation, definition, intuition, formal statement, worked example, proof sketch or full proof, recap.
    - Call out gaps where OCR or PDF extraction was weak.
+   - Treat extracted PDF text as source evidence only. Do not narrate raw slide text, page footers, bullet fragments, OCR artifacts, or copied paragraphs.
+   - Author the lesson in natural spoken language. The narration should sound like a teacher explaining the idea, not like someone reading the slides aloud.
 
 3. Write narration for timing.
    - Keep each narration beat short enough to synchronize with one visual action.
@@ -84,6 +86,9 @@ This creates a finished baseline video without an external API. Codex should imp
    - Keep mathematical notation consistent with the source PDFs.
    - Use visual pacing: reveal, transform, highlight, arrange, then recap.
    - Prefer clear diagrams and algebraic transformations over text-heavy slides.
+   - Do not follow a fixed visual template when Codex is authoring the final lecture. Design visuals from the actual mathematical content: number lines, clocks, Cayley tables, commutative diagrams, graphs, geometric transformations, set partitions, proof flow diagrams, and concrete examples as appropriate.
+   - Aim for a 3Blue1Brown-like teaching style: dynamic object transformations, color-coded mathematical roles, smooth camera movement, progressive reveals, and minimal text.
+   - On-screen text should be labels, definitions, formulas, or short signposts only. Never put raw PDF paragraphs or slide bullets on screen.
    - Use Manim Voiceover if installed; otherwise structure code so audio can be attached later with `self.add_sound(...)` and timing waits.
    - Use safe-zone helpers for every text, math, diagram, and group. No visible object may overlap incoherently, exceed the render frame, or be sized too small/large for the viewport.
 
@@ -170,6 +175,7 @@ If real TTS generation is unavailable, create estimated timing from word count a
 ## Quality Bar
 
 - The lecture should teach, not merely summarize.
+- PDF material should be transformed into a coherent lesson. Copying slide text into narration or visuals is a failure.
 - Every theorem or definition used in the animation should be introduced before use.
 - Important equations should be derived step by step.
 - The final deliverable should include concrete render commands and known limitations.
